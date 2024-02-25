@@ -177,6 +177,7 @@ class DDQNAgent:
                 self._plot(frame_idx, scores, losses, epsilons)
                 
         self.env.close()
+        return scores, losses
                 
     def test(self, video_folder: str) -> None:
         """Test the agent."""
