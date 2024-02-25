@@ -5,4 +5,4 @@ Dueling DDQN: 143.0
 Multi-step learning: 169.5
 Distributional DQN: 101.0
 Noisy DQN: 70.0
-Rainbow: 134.0
+Rainbow: 109.5
