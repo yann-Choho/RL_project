@@ -63,15 +63,10 @@ To run this code, you will need to install the following libraries:
 - Install the required libraries by running `pip install -r requirements.txt`.
 
 
-Les bibliothèques requises sont :
+Les bibliothèques  principale sont  :
 ```
-- torch==1.13.1
-- matplotlib==3.5.1
-- pyglet==1.5.15
-- gymnasium[classic-control]==0.28.1
-- PyVirtualDisplay==3.0
-- jupyterlab==3.2.6
-- moviepy==1.0.3
+- torch
+- gymnasium (by OpenAI)
 ```
 
 ## 2. Defining the hyperparameters
@@ -82,16 +77,19 @@ We define the hyperparameters for the Rainbow algorithm.
 # Hyperparameters
 BATCH_SIZE = 32
 LR = 0.0005
-EPSILON = 0.1
+EPSILON = 0.0005
 GAMMA = 0.99
 TARGET_UPDATE = 1000
-REPLAY_MEMORY_SIZE = 10000
+REPLAY_MEMORY_SIZE = 15000
 LEARNING_STARTS = 1000
 N_ATOMS = 51
 V_MIN = -10
 V_MAX = 10
 ```
-We used the Adam optimizer (Kingma and Ba 2014)
 
-To launch the code : use the ```notebook.ipynb```
+## Structure of the repository
+- To launch the code : use the ```notebook.ipynb```
 
+- The `utils` folder contains the `Agent` class used for training each Q-algorithm (including Rainbow). The class name is written in uppercase (e.g., `AGENT`), while the neural network classes have names ending with `Network`. Additionally, there are specific buffer classes with names starting with `Buffer`.
+
+- The `Result` folder contains testing on one episode of each algorithm in .mp4 format

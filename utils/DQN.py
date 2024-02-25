@@ -12,171 +12,198 @@ import matplotlib.pyplot as plt
 
 # DQN Agent
 class DQNAgent:
-    """DQN Agent interacting with environment.
+    """DQN Agent interacting with the environment.
     
-    Attribute:
-        env (gym.Env): openAI Gym environment
-        memory (ReplayBuffer): replay memory to store transitions
-        batch_size (int): batch size for sampling
-        epsilon (float): parameter for epsilon greedy policy
-        epsilon_decay (float): step size to decrease epsilon
-        max_epsilon (float): max value of epsilon
-        min_epsilon (float): min value of epsilon
-        target_update (int): period for target model's hard update
-        gamma (float): discount factor
-        dqn (Network): model to train and select actions
-        dqn_target (Network): target model to update
-        optimizer (torch.optim): optimizer for training dqn
-        transition (list): transition information including 
-                           state, action, reward, next_state, done
+    Attributes:
+        env (gym.Env): The OpenAI Gym environment.
+        memory (ReplayBuffer): The replay memory used to store transitions.
+        batch_size (int): The batch size used for sampling.
+        epsilon (float): The parameter for the epsilon-greedy policy.
+        epsilon_decay (float): The step size to decrease epsilon.
+        max_epsilon (float): The maximum value of epsilon.
+        min_epsilon (float): The minimum value of epsilon.
+        target_update (int): The period for the target model's hard update.
+        gamma (float): The discount factor.
+        dqn (Network): The model used for training and selecting actions.
+        dqn_target (Network): The target model used for updating.
+        optimizer (torch.optim): The optimizer used for training the DQN.
+        transition (list): The transition information including state, action, reward, next_state, and done.
     """
 
     def __init__(
-        self, 
-        env: gym.Env,
-        memory_size: int,
-        batch_size: int,
-        target_update: int,
-        epsilon_decay: float,
-        seed: int,
-        max_epsilon: float = 1.0,
-        min_epsilon: float = 0.1,
-        gamma: float = 0.99,
-    ):
-        """Initialization.
-        
-        Args:
-            env (gym.Env): openAI Gym environment
-            memory_size (int): length of memory
-            batch_size (int): batch size for sampling
-            target_update (int): period for target model's hard update
-            epsilon_decay (float): step size to decrease epsilon
-            lr (float): learning rate
-            max_epsilon (float): max value of epsilon
-            min_epsilon (float): min value of epsilon
-            gamma (float): discount factor
-        """
-        obs_dim = env.observation_space.shape[0]
-        action_dim = env.action_space.n
-        
-        self.env = env
-        self.memory = ReplayBuffer(obs_dim, memory_size, batch_size)
-        self.batch_size = batch_size
-        self.epsilon = max_epsilon
-        self.epsilon_decay = epsilon_decay
-        self.seed = seed
-        self.max_epsilon = max_epsilon
-        self.min_epsilon = min_epsilon
-        self.target_update = target_update
-        self.gamma = gamma
-        
-        # device: cpu / gpu
-        self.device = torch.device(
-            "cuda" if torch.cuda.is_available() else "cpu"
-        )
-        print(self.device)
+            self, 
+            env: gym.Env,
+            memory_size: int,
+            batch_size: int,
+            target_update: int,
+            epsilon_decay: float,
+            seed: int,
+            max_epsilon: float = 1.0,
+            min_epsilon: float = 0.1,
+            gamma: float = 0.99,
+        ):
+            """
+            Initialize the DQN agent.
+            
+            Args:
+                env (gym.Env): The OpenAI Gym environment.
+                memory_size (int): The length of the replay memory.
+                batch_size (int): The batch size for sampling from the replay memory.
+                target_update (int): The period for updating the target model.
+                epsilon_decay (float): The step size to decrease epsilon.
+                seed (int): The random seed for reproducibility.
+                max_epsilon (float, optional): The maximum value of epsilon. Defaults to 1.0.
+                min_epsilon (float, optional): The minimum value of epsilon. Defaults to 0.1.
+                gamma (float, optional): The discount factor. Defaults to 0.99.
+            """
+            obs_dim = env.observation_space.shape[0]
+            action_dim = env.action_space.n
+            
+            self.env = env
+            self.memory = ReplayBuffer(obs_dim, memory_size, batch_size)
+            self.batch_size = batch_size
+            self.epsilon = max_epsilon
+            self.epsilon_decay = epsilon_decay
+            self.seed = seed
+            self.max_epsilon = max_epsilon
+            self.min_epsilon = min_epsilon
+            self.target_update = target_update
+            self.gamma = gamma
+            
+            # device: cpu / gpu
+            self.device = torch.device(
+                "cuda" if torch.cuda.is_available() else "cpu"
+            )
+            print(self.device)
 
-        # networks: dqn, dqn_target
-        self.dqn = Network(obs_dim, action_dim).to(self.device)
-        self.dqn_target = Network(obs_dim, action_dim).to(self.device)
-        self.dqn_target.load_state_dict(self.dqn.state_dict())
-        self.dqn_target.eval()
-        
-        # optimizer
-        self.optimizer = optim.Adam(self.dqn.parameters())
+            # networks: dqn, dqn_target
+            self.dqn = Network(obs_dim, action_dim).to(self.device)
+            self.dqn_target = Network(obs_dim, action_dim).to(self.device)
+            self.dqn_target.load_state_dict(self.dqn.state_dict())
+            self.dqn_target.eval()
+            
+            # optimizer
+            self.optimizer = optim.Adam(self.dqn.parameters())
 
-        # transition to store in memory
-        self.transition = list()
-        
-        # mode: train / test
-        self.is_test = False
+            # transition to store in memory
+            self.transition = list()
+            
+            # mode: train / test
+            self.is_test = False
 
     def select_action(self, state: np.ndarray) -> np.ndarray:
-        """Select an action from the input state."""
-        # epsilon greedy policy
-        if self.epsilon > np.random.random():
-            selected_action = self.env.action_space.sample()
-        else:
-            selected_action = self.dqn(
-                torch.FloatTensor(state).to(self.device)
-            ).argmax()
-            selected_action = selected_action.detach().cpu().numpy()
-        
-        if not self.is_test:
-            self.transition = [state, selected_action]
-        
-        return selected_action
+            """
+            Selects an action based on the input state using an epsilon-greedy policy.
+
+            Parameters:
+                state (np.ndarray): The input state.
+
+            Returns:
+                np.ndarray: The selected action.
+            """
+            # epsilon greedy policy
+            if self.epsilon > np.random.random():
+                selected_action = self.env.action_space.sample()
+            else:
+                selected_action = self.dqn(
+                    torch.FloatTensor(state).to(self.device)
+                ).argmax()
+                selected_action = selected_action.detach().cpu().numpy()
+            
+            if not self.is_test:
+                self.transition = [state, selected_action]
+            
+            return selected_action
 
     def step(self, action: np.ndarray) -> Tuple[np.ndarray, np.float64, bool]:
-        """Take an action and return the response of the env."""
-        next_state, reward, terminated, truncated, _ = self.env.step(action)
-        done = terminated or truncated
+            """
+            Take an action in the environment and return the resulting next state, reward, and termination status.
 
-        if not self.is_test:
-            self.transition += [reward, next_state, done]
-            self.memory.store(*self.transition)
-    
-        return next_state, reward, done
+            Parameters:
+                action (np.ndarray): The action to take in the environment.
+
+            Returns:
+                Tuple[np.ndarray, np.float64, bool]: A tuple containing the next state, reward, and termination status.
+            """
+            next_state, reward, terminated, truncated, _ = self.env.step(action)
+            done = terminated or truncated
+
+            if not self.is_test:
+                self.transition += [reward, next_state, done]
+                self.memory.store(*self.transition)
+        
+            return next_state, reward, done
 
     def update_model(self) -> torch.Tensor:
-        """Update the model by gradient descent."""
-        samples = self.memory.sample_batch()
+            """
+            Update the model parameters using gradient descent.
 
-        loss = self._compute_dqn_loss(samples)
+            Returns:
+                The loss value as a torch.Tensor.
+            """
+            samples = self.memory.sample_batch()
 
-        self.optimizer.zero_grad()
-        loss.backward()
-        self.optimizer.step()
+            loss = self._compute_dqn_loss(samples)
 
-        return loss.item()
+            self.optimizer.zero_grad()
+            loss.backward()
+            self.optimizer.step()
+
+            return loss.item()
         
     def train(self, num_frames: int, plotting_interval: int = 200):
-        """Train the agent."""
-        self.is_test = False
-        
-        state, _ = self.env.reset(seed=self.seed)
-        update_cnt = 0
-        epsilons = []
-        losses = []
-        scores = []
-        score = 0
+            """
+            Train the agent.
 
-        for frame_idx in range(1, num_frames + 1):
-            action = self.select_action(state)
-            next_state, reward, done = self.step(action)
+            Args:
+                num_frames (int): The total number of frames to train the agent.
+                plotting_interval (int, optional): The interval at which to plot the training progress. Defaults to 200.
+            """
+            self.is_test = False
+            
+            state, _ = self.env.reset(seed=self.seed)
+            update_cnt = 0
+            epsilons = []
+            losses = []
+            scores = []
+            score = 0
 
-            state = next_state
-            score += reward
+            for frame_idx in range(1, num_frames + 1):
+                action = self.select_action(state)
+                next_state, reward, done = self.step(action)
 
-            # if episode ends
-            if done:
-                state, _ = self.env.reset(seed=self.seed)
-                scores.append(score)
-                score = 0
+                state = next_state
+                score += reward
 
-            # if training is ready
-            if len(self.memory) >= self.batch_size:
-                loss = self.update_model()
-                losses.append(loss)
-                update_cnt += 1
-                
-                # linearly decrease epsilon
-                self.epsilon = max(
-                    self.min_epsilon, self.epsilon - (
-                        self.max_epsilon - self.min_epsilon
-                    ) * self.epsilon_decay
-                )
-                epsilons.append(self.epsilon)
-                
-                # if hard update is needed
-                if update_cnt % self.target_update == 0:
-                    self._target_hard_update()
+                # if episode ends
+                if done:
+                    state, _ = self.env.reset(seed=self.seed)
+                    scores.append(score)
+                    score = 0
 
-            # plotting
-            if frame_idx % plotting_interval == 0:
-                self._plot(frame_idx, scores, losses, epsilons)
-                
-        self.env.close()
+                # if training is ready
+                if len(self.memory) >= self.batch_size:
+                    loss = self.update_model()
+                    losses.append(loss)
+                    update_cnt += 1
+                    
+                    # linearly decrease epsilon
+                    self.epsilon = max(
+                        self.min_epsilon, self.epsilon - (
+                            self.max_epsilon - self.min_epsilon
+                        ) * self.epsilon_decay
+                    )
+                    epsilons.append(self.epsilon)
+                    
+                    # if hard update is needed
+                    if update_cnt % self.target_update == 0:
+                        self._target_hard_update()
+
+                # plotting
+                if frame_idx % plotting_interval == 0:
+                    self._plot(frame_idx, scores, losses, epsilons)
+                    
+            self.env.close()
                 
     def test(self, video_folder: str) -> None:
         """Test the agent."""
