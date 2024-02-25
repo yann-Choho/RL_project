@@ -92,3 +92,6 @@ V_MIN = -10
 V_MAX = 10
 ```
 We used the Adam optimizer (Kingma and Ba 2014)
+
+To launch the code : use the ```notebook.ipynb```
+
